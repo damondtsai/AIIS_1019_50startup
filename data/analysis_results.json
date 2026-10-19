@@ -1,0 +1,375 @@
+{
+  "metadata": {
+    "dataset_name": "Kaggle 50 Startups",
+    "total_records": 50,
+    "train_samples": 40,
+    "test_samples": 10,
+    "original_columns": [
+      "R&D Spend",
+      "Administration",
+      "Marketing Spend",
+      "State",
+      "Profit"
+    ],
+    "encoded_features": [
+      "R&D Spend",
+      "Administration",
+      "Marketing Spend",
+      "State_Florida",
+      "State_New York"
+    ],
+    "reference_category": "California (drop_first=True)",
+    "split_random_state": 0,
+    "test_ratio": 0.2
+  },
+  "summary": {
+    "total_samples": 50,
+    "states_distribution": {
+      "New York": 17,
+      "California": 17,
+      "Florida": 16
+    },
+    "profit": {
+      "mean": 112012.63920000002,
+      "std": 40306.18033765055,
+      "min": 14681.4,
+      "max": 192261.83
+    },
+    "rd_spend": {
+      "mean": 73721.6156,
+      "std": 45902.25648230753,
+      "min": 0.0,
+      "max": 165349.2
+    },
+    "admin_spend": {
+      "mean": 121344.63960000001,
+      "std": 28017.802755488683,
+      "min": 51283.14,
+      "max": 182645.56
+    },
+    "marketing_spend": {
+      "mean": 211025.09780000002,
+      "std": 122290.31072584528,
+      "min": 0.0,
+      "max": 471784.1
+    }
+  },
+  "stepwise_results": [
+    {
+      "k": 1,
+      "selected_features": [
+        "R&D Spend"
+      ],
+      "cv_rmse": 10163.4592,
+      "test_rmse": 8274.868018,
+      "test_r2": 0.946459,
+      "intercept": 48416.297661385026,
+      "coefficients": {
+        "R&D Spend": 0.8516227998779371
+      }
+    },
+    {
+      "k": 2,
+      "selected_features": [
+        "R&D Spend",
+        "Marketing Spend"
+      ],
+      "cv_rmse": 9906.1203,
+      "test_rmse": 8198.797191,
+      "test_r2": 0.947439,
+      "intercept": 46346.338761236555,
+      "coefficients": {
+        "R&D Spend": 0.7886182999424615,
+        "Marketing Spend": 0.032576627317020684
+      }
+    },
+    {
+      "k": 3,
+      "selected_features": [
+        "R&D Spend",
+        "Marketing Spend",
+        "State_New York"
+      ],
+      "cv_rmse": 10278.9256,
+      "test_rmse": 8309.059683,
+      "test_r2": 0.946015,
+      "intercept": 46100.29130551415,
+      "coefficients": {
+        "R&D Spend": 0.7858709815066744,
+        "Marketing Spend": 0.033271829410322355,
+        "State_New York": 864.0018700527347
+      }
+    },
+    {
+      "k": 4,
+      "selected_features": [
+        "R&D Spend",
+        "Marketing Spend",
+        "State_New York",
+        "State_Florida"
+      ],
+      "cv_rmse": 10430.08,
+      "test_rmse": 8409.916714,
+      "test_r2": 0.944697,
+      "intercept": 46329.060178542495,
+      "coefficients": {
+        "R&D Spend": 0.7851417173112172,
+        "Marketing Spend": 0.033956402340301096,
+        "State_New York": 554.657332826717,
+        "State_Florida": -826.4681587619036
+      }
+    },
+    {
+      "k": 5,
+      "selected_features": [
+        "R&D Spend",
+        "Marketing Spend",
+        "State_New York",
+        "State_Florida",
+        "Administration"
+      ],
+      "cv_rmse": 10612.9546,
+      "test_rmse": 9137.990153,
+      "test_r2": 0.934707,
+      "intercept": 42554.16761773672,
+      "coefficients": {
+        "R&D Spend": 0.773467192732945,
+        "Marketing Spend": 0.03661002586378126,
+        "State_New York": 699.369052518143,
+        "State_Florida": -959.2841600576189,
+        "Administration": 0.03288459753626341
+      }
+    }
+  ],
+  "best_cv_model_k": 2,
+  "best_test_model_k": 2,
+  "feature_selection_methods": {
+    "anova": {
+      "name": "ANOVA F-test (過濾法 Filter)",
+      "description": "計算各特徵與 Profit 之間的單變量線性相關 F 分數與顯著性 p-value。分數越高代表單獨對利潤的線性解釋力越強。",
+      "results": [
+        {
+          "feature": "R&D Spend",
+          "f_score": 652.3942,
+          "p_value": 1.5627804982978309e-25
+        },
+        {
+          "feature": "Marketing Spend",
+          "f_score": 49.0766,
+          "p_value": 2.4177487885322326e-08
+        },
+        {
+          "feature": "Administration",
+          "f_score": 4.7259,
+          "p_value": 0.03600959318266746
+        },
+        {
+          "feature": "State_New York",
+          "f_score": 0.9072,
+          "p_value": 0.3468812957867624
+        },
+        {
+          "feature": "State_Florida",
+          "f_score": 0.0096,
+          "p_value": 0.9225507443160315
+        }
+      ]
+    },
+    "rfe": {
+      "name": "RFE 遞迴特徵消除 (包裝法 Wrapper)",
+      "description": "在訓練集上擬合標準化線性迴歸，反覆評估係數絕對值並剔除權重最小特徵，排名 1 為最後保留的最核心特徵。",
+      "results": [
+        {
+          "feature": "R&D Spend",
+          "ranking": 1,
+          "priority_score": 5
+        },
+        {
+          "feature": "Marketing Spend",
+          "ranking": 2,
+          "priority_score": 4
+        },
+        {
+          "feature": "Administration",
+          "ranking": 3,
+          "priority_score": 3
+        },
+        {
+          "feature": "State_Florida",
+          "ranking": 4,
+          "priority_score": 2
+        },
+        {
+          "feature": "State_New York",
+          "ranking": 5,
+          "priority_score": 1
+        }
+      ]
+    },
+    "lasso": {
+      "name": "LassoCV L1 正則化 (嵌入法 Embedded)",
+      "best_alpha": 1825.8283,
+      "description": "透過 5-fold 交叉驗證挑選最佳懲罰係數 alpha，藉由 L1 稀疏約束自動將無效特徵係數直接壓縮歸零。",
+      "results": [
+        {
+          "feature": "R&D Spend",
+          "coef": 35370.1064,
+          "abs_coef": 35370.1064,
+          "selected": true
+        },
+        {
+          "feature": "Marketing Spend",
+          "coef": 2960.1922,
+          "abs_coef": 2960.1922,
+          "selected": true
+        },
+        {
+          "feature": "Administration",
+          "coef": 0.0,
+          "abs_coef": 0.0,
+          "selected": false
+        },
+        {
+          "feature": "State_Florida",
+          "coef": -0.0,
+          "abs_coef": 0.0,
+          "selected": false
+        },
+        {
+          "feature": "State_New York",
+          "coef": 0.0,
+          "abs_coef": 0.0,
+          "selected": false
+        }
+      ]
+    }
+  },
+  "predictors": {
+    "cv_recommended": {
+      "name": "交叉驗證推薦模型 (k=2)",
+      "k": 2,
+      "features": [
+        "R&D Spend",
+        "Marketing Spend"
+      ],
+      "intercept": 46346.338761236555,
+      "coefficients": {
+        "R&D Spend": 0.7886182999424615,
+        "Marketing Spend": 0.032576627317020684
+      },
+      "cv_rmse": 9906.1203,
+      "test_rmse": 8198.797191,
+      "test_r2": 0.947439
+    },
+    "two_features": {
+      "name": "雙特徵示範模型 [R&D, Marketing]",
+      "k": 2,
+      "features": [
+        "R&D Spend",
+        "Marketing Spend"
+      ],
+      "intercept": 46346.338761236555,
+      "coefficients": {
+        "R&D Spend": 0.7886182999424615,
+        "Marketing Spend": 0.032576627317020684
+      },
+      "cv_rmse": 9906.1203,
+      "test_rmse": 8198.797191,
+      "test_r2": 0.947439
+    },
+    "full_five": {
+      "name": "完整五特徵模型 (All Features)",
+      "k": 5,
+      "features": [
+        "R&D Spend",
+        "Marketing Spend",
+        "State_New York",
+        "State_Florida",
+        "Administration"
+      ],
+      "intercept": 42554.16761773672,
+      "coefficients": {
+        "R&D Spend": 0.773467192732945,
+        "Marketing Spend": 0.03661002586378126,
+        "State_New York": 699.369052518143,
+        "State_Florida": -959.2841600576189,
+        "Administration": 0.03288459753626341
+      },
+      "cv_rmse": 10612.9546,
+      "test_rmse": 9137.990153,
+      "test_r2": 0.934707
+    }
+  },
+  "sample_records": [
+    {
+      "R&D Spend": 165349.2,
+      "Administration": 136897.8,
+      "Marketing Spend": 471784.1,
+      "State": "New York",
+      "Profit": 192261.83
+    },
+    {
+      "R&D Spend": 162597.7,
+      "Administration": 151377.59,
+      "Marketing Spend": 443898.53,
+      "State": "California",
+      "Profit": 191792.06
+    },
+    {
+      "R&D Spend": 153441.51,
+      "Administration": 101145.55,
+      "Marketing Spend": 407934.54,
+      "State": "Florida",
+      "Profit": 191050.39
+    },
+    {
+      "R&D Spend": 144372.41,
+      "Administration": 118671.85,
+      "Marketing Spend": 383199.62,
+      "State": "New York",
+      "Profit": 182901.99
+    },
+    {
+      "R&D Spend": 142107.34,
+      "Administration": 91391.77,
+      "Marketing Spend": 366168.42,
+      "State": "Florida",
+      "Profit": 166187.94
+    },
+    {
+      "R&D Spend": 131876.9,
+      "Administration": 99814.71,
+      "Marketing Spend": 362861.36,
+      "State": "New York",
+      "Profit": 156991.12
+    },
+    {
+      "R&D Spend": 134615.46,
+      "Administration": 147198.87,
+      "Marketing Spend": 127716.82,
+      "State": "California",
+      "Profit": 156122.51
+    },
+    {
+      "R&D Spend": 130298.13,
+      "Administration": 145530.06,
+      "Marketing Spend": 323876.68,
+      "State": "Florida",
+      "Profit": 155752.6
+    },
+    {
+      "R&D Spend": 120542.52,
+      "Administration": 148718.95,
+      "Marketing Spend": 311613.29,
+      "State": "New York",
+      "Profit": 152211.77
+    },
+    {
+      "R&D Spend": 123334.88,
+      "Administration": 108679.17,
+      "Marketing Spend": 304981.62,
+      "State": "California",
+      "Profit": 149759.96
+    }
+  ]
+}

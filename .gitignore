@@ -1,0 +1,24 @@
+# Python 虛擬環境
+.venv/
+env/
+venv/
+ENV/
+
+# Python 快取
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 系統與編輯器暫存
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# 暫存參考檔案
+ref_main.py
+ref_script.js

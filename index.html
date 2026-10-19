@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>50 Startups 多元線性迴歸與特徵選擇互動分析儀表板</title>
+    <meta name="description" content="Kaggle 50 Startups 多元線性迴歸與特徵選擇完整專案：ANOVA F-test、RFE、LassoCV 特徵篩選、1~5 特徵逐步評估、交叉驗證與即時利潤預測器。">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Custom CSS (使用相對路徑，相容 GitHub Pages 子路徑) -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <!-- 頁首與導覽 (Header & Navigation) -->
+        <header class="navbar">
+            <a href="#" class="nav-brand">
+                <div class="brand-logo">📈</div>
+                <div class="brand-text">
+                    <h1>50 Startups 迴歸分析</h1>
+                    <p>多元線性迴歸 · 特徵選擇 · 獲利預測</p>
+                </div>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#section-overview" class="active">專案概覽</a></li>
+                <li><a href="#section-stepwise">特徵評估圖表</a></li>
+                <li><a href="#section-predictor">即時利潤預測</a></li>
+                <li><a href="#section-methods">三種特徵選擇</a></li>
+                <li><a href="#section-methodology">方法與限制</a></li>
+                <li>
+                    <a href="https://github.com/damondtsai/AIIS_1019_50startup" target="_blank" rel="noopener noreferrer" class="external-link">
+                        GitHub 儲存庫 ↗
+                    </a>
+                </li>
+            </ul>
+        </header>
+
+        <!-- 英雄區 (Hero Section) -->
+        <section id="section-overview" class="hero-section">
+            <span class="hero-badge">CRISP-DM · 機器學習特徵選擇工作流</span>
+            <h2 class="hero-title">Kaggle 50 Startups 多元線性迴歸與特徵選擇</h2>
+            <p class="hero-subtitle">
+                探討 50 家美國新創公司的 <strong>研發支出 (R&D Spend)</strong>、<strong>行政管理 (Administration)</strong>、<strong>行銷支出 (Marketing Spend)</strong> 與 <strong>所在州別 (State)</strong> 如何共同影響 <strong>年度獲利 (Profit)</strong>。透過嚴謹的資料前處理、One-Hot 編碼、逐步特徵評估、5-fold 交叉驗證與三種特徵選擇方法，找出最具泛化能力的最佳模型。
+            </p>
+            <div class="hero-source-links">
+                <a href="https://raw.githubusercontent.com/chenyichencyc/1019_50startup/main/50_Startups.csv" target="_blank" class="chip-link">
+                    📄 資料集來源 CSV (50 筆)
+                </a>
+                <a href="https://chenyichencyc.github.io/1019_50startup/" target="_blank" class="chip-link">
+                    🔗 參考成果網站
+                </a>
+                <a href="https://github.com/damondtsai/AIIS_1019_50startup" target="_blank" class="chip-link">
+                    💻 本專案 GitHub Repo
+                </a>
+            </div>
+        </section>
+
+        <!-- 摘要指標卡 (KPI Cards) -->
+        <section class="grid-4">
+            <div class="kpi-card">
+                <span class="kpi-title">總資料筆數 (Total Samples)</span>
+                <div class="kpi-num" id="kpiTotalSamples">50</div>
+                <div class="kpi-source">驗證 50 筆完整紀錄 · 無遺漏值</div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">編碼後特徵數 (Encoded Features)</span>
+                <div class="kpi-num" id="kpiEncodedFeatures">5 個</div>
+                <div class="kpi-source">One-Hot 編碼 (drop_first=True)</div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">交叉驗證選定模型 (CV Model)</span>
+                <div class="kpi-num" id="kpiBestModel" style="color: #34d399;">k=2 (R&D + Mkt)</div>
+                <div class="kpi-source">5-Fold CV 訓練集 RMSE: <span id="kpiCvRmse" style="margin-left: 4px;">$9,906.12</span></div>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-title">測試集最終效能 (Test Metrics)</span>
+                <div class="kpi-num" id="kpiTestRmse" style="color: #38bdf8;">$8,198.80</div>
+                <div class="kpi-source">測試集 R²: <strong id="kpiTestR2" style="color: #fff; margin-left: 4px;">0.9474</strong> (10 筆樣本)</div>
+            </div>
+        </section>
+
+        <!-- 特徵數量評估折線圖與完整表格 (Stepwise Section) -->
+        <section id="section-stepwise" class="card">
+            <div class="card-header">
+                <div>
+                    <h3 class="card-title">
+                        <span class="icon">📈</span>
+                        特徵數量評估趨勢圖 (Features vs. Performance)
+                    </h3>
+                    <p class="card-desc">依序加入：R&D Spend → Marketing Spend → State_New York → State_Florida → Administration</p>
+                </div>
+                <span class="badge-optimal">⭐ 交叉驗證最佳：k=2 [R&D Spend, Marketing Spend]</span>
+            </div>
+
+            <!-- 雙折線圖 (對照 Matplotlib features_performance.png) -->
+            <div class="grid-2" style="margin-bottom: 24px;">
+                <div style="background: rgba(7, 13, 24, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+                    <h4 style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px; text-align: center;">RMSE by Number of Features</h4>
+                    <div class="chart-container">
+                        <canvas id="chartRMSE"></canvas>
+                    </div>
+                </div>
+                <div style="background: rgba(7, 13, 24, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+                    <h4 style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px; text-align: center;">R-squared by Number of Features</h4>
+                    <div class="chart-container">
+                        <canvas id="chartR2"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 完整評估結果表 (Full Results Table) -->
+            <h4 style="font-size: 15px; font-weight: 700; color: var(--cyan-accent); margin-bottom: 12px;">📋 1～5 個特徵完整模型評估表</h4>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 150px; text-align: center;">Number of Features</th>
+                            <th>Selected Features (選用特徵清單)</th>
+                            <th style="text-align: right;">CV RMSE (訓練集交叉驗證)</th>
+                            <th style="text-align: right;">Test RMSE (測試集評估)</th>
+                            <th style="text-align: right;">Test R-squared (測試集 R²)</th>
+                            <th style="width: 190px;">評估狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stepwiseTableBody">
+                        <!-- 由 main.js 依據 JSON 自動生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 即時利潤預測器 (Real-time Predictor) -->
+        <section id="section-predictor" class="card">
+            <div class="card-header">
+                <div>
+                    <h3 class="card-title">
+                        <span class="icon">🎯</span>
+                        即時利潤預測器 (Real-time Profit Predictor)
+                    </h3>
+                    <p class="card-desc">使用 Python 訓練輸出的真實係數進行推論；可自由切換模型架構，輸入欄位隨之動態調整</p>
+                </div>
+                <span class="badge-optimal" id="currentModelBadge">雙特徵示範模型 [R&D, Marketing]</span>
+            </div>
+
+            <!-- 模型架構切換按鈕 -->
+            <div class="model-switch-pills">
+                <button class="pill-btn active" data-model="two_features">⭐ 雙特徵示範模型 [R&D, Marketing] (課堂與參考網站最佳)</button>
+                <button class="pill-btn" data-model="cv_recommended">🎯 交叉驗證推薦模型 (k=2 最優)</button>
+                <button class="pill-btn" data-model="full_five">📦 完整五特徵全變數模型 (All 5 Features)</button>
+            </div>
+
+            <!-- 動態方程式展示 -->
+            <div class="formula-display-box" id="modelFormulaDisplay">
+                <!-- 由 main.js 動態渲染 -->
+            </div>
+
+            <div class="grid-2">
+                <!-- 左欄：動態輸入控制項 -->
+                <div>
+                    <!-- R&D Spend -->
+                    <div class="input-group" id="group_rd">
+                        <div class="input-header">
+                            <label for="rdNumber">🔬 研發支出 (R&D Spend)</label>
+                            <span class="mono" id="rdDisplay" style="color: var(--cyan-accent); font-weight: 700;">$165,349</span>
+                        </div>
+                        <div class="num-input-wrapper">
+                            <input type="range" id="rdSlider" min="0" max="250000" step="1000" value="165349">
+                            <input type="number" id="rdNumber" min="0" max="500000" value="165349">
+                        </div>
+                    </div>
+
+                    <!-- Administration -->
+                    <div class="input-group" id="group_admin" style="display: none;">
+                        <div class="input-header">
+                            <label for="adminNumber">🏢 行政管理支出 (Administration)</label>
+                            <span class="mono" id="adminDisplay" style="color: var(--cyan-accent); font-weight: 700;">$136,898</span>
+                        </div>
+                        <div class="num-input-wrapper">
+                            <input type="range" id="adminSlider" min="50000" max="200000" step="1000" value="136898">
+                            <input type="number" id="adminNumber" min="0" max="300000" value="136898">
+                        </div>
+                    </div>
+
+                    <!-- Marketing Spend -->
+                    <div class="input-group" id="group_mkt">
+                        <div class="input-header">
+                            <label for="mktNumber">📢 市場行銷支出 (Marketing Spend)</label>
+                            <span class="mono" id="mktDisplay" style="color: var(--cyan-accent); font-weight: 700;">$471,784</span>
+                        </div>
+                        <div class="num-input-wrapper">
+                            <input type="range" id="mktSlider" min="0" max="500000" step="2500" value="471784">
+                            <input type="number" id="mktNumber" min="0" max="800000" value="471784">
+                        </div>
+                    </div>
+
+                    <!-- State Dropdown (僅在模型包含州別時顯示) -->
+                    <div class="input-group" id="group_state" style="display: none;">
+                        <div class="input-header">
+                            <label for="stateSelect">📍 登記註冊州別 (State)</label>
+                        </div>
+                        <select id="stateSelect" style="width: 100%;">
+                            <option value="California">加州 (California) - 基準對照組 (drop_first=True)</option>
+                            <option value="Florida">佛羅里達州 (Florida) - State_Florida = 1</option>
+                            <option value="New York" selected>紐約州 (New York) - State_New York = 1</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 右欄：預測結果卡片 -->
+                <div class="predict-result-card">
+                    <span class="predict-label">模型預測年度獲利 (Predicted Profit)</span>
+                    <div class="predict-value" id="predictedProfitResult">$192,102</div>
+                    <span class="predict-model-badge" id="activeModelNameDisplay">雙特徵示範模型 [R&D, Marketing]</span>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 14px; max-width: 320px;">
+                        本數值完全依據 Python 訓練後輸出的真實截距與係數即時計算，精確度與後端一致。
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 三種特徵選擇方法深入分析 (Feature Selection Methods) -->
+        <section id="section-methods" class="card">
+            <div class="card-header">
+                <div>
+                    <h3 class="card-title">
+                        <span class="icon">🔬</span>
+                        三種經典特徵選擇方法深入評估
+                    </h3>
+                    <p class="card-desc">在訓練集 (X_train) 獨立進行特徵篩選，避免資料外洩 (Data Leakage)</p>
+                </div>
+                <!-- 手機版下拉選單 -->
+                <select id="methodSelectDropdown" style="width: auto;">
+                    <option value="anova">1. ANOVA F-test (過濾法)</option>
+                    <option value="rfe">2. RFE 遞迴特徵消除 (包裝法)</option>
+                    <option value="lasso">3. LassoCV L1 正則化 (嵌入法)</option>
+                </select>
+            </div>
+
+            <!-- 桌機頁籤列 -->
+            <div class="method-tabs">
+                <button class="method-tab-btn active" data-method="anova">📊 1. ANOVA F-test (過濾法 Filter)</button>
+                <button class="method-tab-btn" data-method="rfe">🔄 2. RFE 遞迴消除 (包裝法 Wrapper)</button>
+                <button class="method-tab-btn" data-method="lasso">🎯 3. LassoCV L1 正則化 (嵌入法 Embedded)</button>
+            </div>
+
+            <!-- Pane 1: ANOVA -->
+            <div class="method-pane active" id="pane_anova">
+                <div class="method-explanation">
+                    <strong>ANOVA F-test 概念：</strong> 單變量特徵評估方法。分別計算每個自變數與目標變數 Profit 的線性相關程度。F-Score 越高、p-value 越小，代表該特徵單獨對利潤的線性解釋力越顯著。
+                </div>
+                <div class="grid-2">
+                    <div style="background: rgba(7, 13, 24, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+                        <h4 style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px;">ANOVA F-Score 長條圖</h4>
+                        <div class="chart-container" style="height: 260px;">
+                            <canvas id="chartANOVA"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>特徵名稱</th>
+                                    <th>F-Score</th>
+                                    <th>p-value (顯著性)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="anovaTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pane 2: RFE -->
+            <div class="method-pane" id="pane_rfe">
+                <div class="method-explanation">
+                    <strong>RFE 遞迴特徵消除概念：</strong> 包裝法代表。在標準化特徵的訓練集上擬合線性迴歸，每次剔除權重最小的特徵並重新擬合，直到剩下最後核心特徵。排名為 1 代表最核心保留特徵。
+                </div>
+                <div class="grid-2">
+                    <div style="background: rgba(7, 13, 24, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+                        <h4 style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px;">RFE 保留優先級 (逆排名)</h4>
+                        <div class="chart-container" style="height: 260px;">
+                            <canvas id="chartRFE"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>特徵名稱</th>
+                                    <th>RFE 淘汰排名</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rfeTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pane 3: LassoCV -->
+            <div class="method-pane" id="pane_lasso">
+                <div class="method-explanation">
+                    <strong>LassoCV (L1 正則化) 概念：</strong> 嵌入式特徵選取。透過 5-Fold 交叉驗證挑選最佳懲罰參數 alpha (<strong id="lassoBestAlpha">-</strong>)。L1 正則化的幾何特性會將非必要變數的係數直接壓縮收縮至精確為 0，實現自動稀疏特徵選擇。
+                </div>
+                <div class="grid-2">
+                    <div style="background: rgba(7, 13, 24, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+                        <h4 style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px;">Lasso 懲罰後標準化絕對係數</h4>
+                        <div class="chart-container" style="height: 260px;">
+                            <canvas id="chartLasso"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>特徵名稱</th>
+                                    <th>標準化懲罰後係數</th>
+                                    <th>特徵保留狀態</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lassoTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 方法與限制 (Methodology & Limitations) -->
+        <section id="section-methodology" class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <span class="icon">📖</span>
+                    方法論、指標定義與研究限制說明
+                </h3>
+            </div>
+            <div class="method-grid">
+                <div class="method-item">
+                    <h4>資料切分 (Train/Test Split)</h4>
+                    <p>固定採用 <code>test_size=0.2, random_state=0</code> 切分，訓練集 40 筆，測試集 10 筆。所有標準化、特徵選擇與模型訓練均只在 40 筆訓練集上進行，測試集只在最後評估時觸碰一次。</p>
+                </div>
+                <div class="method-item">
+                    <h4>One-Hot Encoding (drop_first=True)</h4>
+                    <p>原始 4 個輸入欄位中，類別變數 State 包含 California、Florida、New York 三個類別。設定 <code>drop_first=True</code> 將 California 作為基準對照組，編碼產生 State_Florida 與 State_New York 兩個虛擬變數，使模型總特徵數成為 5 個，避免虛擬變數陷阱 (Dummy Variable Trap)。</p>
+                </div>
+                <div class="method-item">
+                    <h4>交叉驗證 (K-Fold Cross-Validation)</h4>
+                    <p>在 40 筆訓練資料上執行 5-Fold 交叉驗證（每折 8 筆），用以評估各特徵子集的真實泛化穩定性。交叉驗證挑選出的最佳模型具備較佳抗變異能力，不應與單次隨機測試集切分的偶然分數混淆。</p>
+                </div>
+                <div class="method-item">
+                    <h4>評估指標：RMSE 與 R²</h4>
+                    <p><strong>RMSE (均方根誤差)：</strong> 衡量預測值與真實獲利的平均離差大小，單位與美元一致，數值越低越好。<br><strong>R² (決定係數)：</strong> 衡量模型對利潤總變異的解釋比例，越接近 1 代表解釋力越高。</p>
+                </div>
+            </div>
+
+            <div class="alert-warning">
+                <div style="font-size: 24px;">⚠️</div>
+                <div>
+                    <h4>樣本規模與統計限制提醒</h4>
+                    <p>
+                        本資料集總樣本數僅有 <strong>50 筆</strong>，在 80/20 切分下，<strong>測試集僅有 10 筆資料</strong>。在極小樣本下，測試指標對少數極端樣本具有高度敏感性，切分隨機種子（Random State）的不同可能導致評估指標出現波動。因此，<strong>請勿僅憑單次切分的測試分數就斷言某特徵必然完全無效或模型必然產生嚴重過擬合</strong>。在機器學習實務中，應優先以交叉驗證分數作為模型架構選取的基準。
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 頁尾 (Footer) -->
+        <footer>
+            <p>
+                Kaggle 50 Startups 多元線性迴歸與特徵選擇互動分析儀表板 · 遵循 CRISP-DM 規範開發
+            </p>
+            <p style="margin-top: 8px;">
+                專案儲存庫：<a href="https://github.com/damondtsai/AIIS_1019_50startup" target="_blank" rel="noopener noreferrer">damondtsai/AIIS_1019_50startup</a> · 
+                參考網站：<a href="https://chenyichencyc.github.io/1019_50startup/" target="_blank" rel="noopener noreferrer">chenyichencyc.github.io/1019_50startup</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- 載入互動邏輯 (使用相對路徑) -->
+    <script src="js/main.js"></script>
+</body>
+</html>
