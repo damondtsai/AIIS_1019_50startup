@@ -4,8 +4,7 @@
 
 - **線上成果網站 (GitHub Pages)**: `https://damondtsai.github.io/AIIS_1019_50startup/`
 - **專案儲存庫**: [https://github.com/damondtsai/AIIS_1019_50startup](https://github.com/damondtsai/AIIS_1019_50startup)
-- **參考成果網站**: [https://chenyichencyc.github.io/1019_50startup/](https://chenyichencyc.github.io/1019_50startup/)
-- **參考儲存庫**: [https://github.com/chenyichencyc/1019_50startup](https://github.com/chenyichencyc/1019_50startup)
+
 
 ---
 
