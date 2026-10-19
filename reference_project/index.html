@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>50 Startups 特徵工程與利潤預測分析儀表板</title>
+    <meta name="description" content="50 Startups 多元線性回歸特徵篩選分析平台：比較 ANOVA F-test、RFE、Lasso 等特徵選擇方法之模型成效與預測表現。">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-base: #080b11;
+            --bg-surface: rgba(15, 23, 42, 0.75);
+            --bg-card: rgba(30, 41, 59, 0.65);
+            --bg-card-hover: rgba(51, 65, 85, 0.75);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-focus: rgba(56, 189, 248, 0.5);
+            
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            
+            --cyan-accent: #06b6d4;
+            --cyan-glow: rgba(6, 182, 212, 0.25);
+            --blue-accent: #3b82f6;
+            --purple-accent: #a855f7;
+            --emerald-accent: #10b981;
+            --amber-accent: #f59e0b;
+            --rose-accent: #f43f5e;
+            
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            position: relative;
+        }
+
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.9rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--cyan-accent);
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+            backdrop-filter: blur(8px);
+        }
+
+        .badge-pill span.dot {
+            width: 7px;
+            height: 7px;
+            background-color: var(--cyan-accent);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--cyan-accent);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        h1 {
+            font-size: clamp(2rem, 4vw, 2.85rem);
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            line-height: 1.2;
+            margin-bottom: 0.85rem;
+            background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+            color: var(--text-muted);
+            max-width: 780px;
+            margin: 0 auto 1.5rem auto;
+        }
+
+        .top-links {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1.1rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .btn-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+
+        /* Control Panel (Dropdown & Switcher) */
+        .control-panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(16px);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem 1.8rem;
+            margin-bottom: 2.2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        @media (min-width: 768px) {
+            .control-panel {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+
+        .control-label-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .control-label {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .control-desc {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+
+        .select-wrapper {
+            position: relative;
+            min-width: 290px;
+        }
+
+        select.custom-select {
+            width: 100%;
+            appearance: none;
+            background: rgba(15, 23, 42, 0.95);
+            color: #ffffff;
+            border: 1.5px solid rgba(56, 189, 248, 0.4);
+            border-radius: var(--radius-md);
+            padding: 0.85rem 2.8rem 0.85rem 1.2rem;
+            font-family: inherit;
+            font-size: 0.98rem;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.15);
+        }
+
+        select.custom-select:hover {
+            border-color: var(--cyan-accent);
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.3);
+        }
+
+        select.custom-select:focus {
+            border-color: var(--cyan-accent);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.3);
+        }
+
+        .select-icon {
+            position: absolute;
+            right: 1.1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: var(--cyan-accent);
+            font-size: 0.85rem;
+        }
+
+        /* KPI Cards Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.2rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.35rem 1.5rem;
+            backdrop-filter: blur(12px);
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .kpi-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255, 255, 255, 0.18);
+            transform: translateY(-2px);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-color, var(--cyan-accent));
+        }
+
+        .kpi-title {
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .kpi-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .kpi-sub {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            margin-top: 0.3rem;
+        }
+
+        /* Main View Container */
+        .view-section {
+            display: none;
+            animation: fadeIn 0.35s ease-out forwards;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Card container */
+        .glass-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1.8rem;
+            backdrop-filter: blur(16px);
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        /* Chart Canvas wrapper */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 992px) {
+            .chart-grid.dual {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .chart-box {
+            background: rgba(10, 15, 28, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: var(--radius-md);
+            padding: 1.25rem;
+            position: relative;
+        }
+
+        .chart-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .canvas-container {
+            position: relative;
+            height: 290px;
+            width: 100%;
+        }
+
+        /* Modern Table */
+        .table-responsive {
+            overflow-x: auto;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background: rgba(10, 15, 28, 0.5);
+        }
+
+        table.custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.92rem;
+            text-align: left;
+        }
+
+        table.custom-table th {
+            background: rgba(15, 23, 42, 0.9);
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 0.95rem 1.2rem;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.8rem;
+        }
+
+        table.custom-table td {
+            padding: 0.95rem 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: var(--text-main);
+        }
+
+        table.custom-table tr:hover td {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        table.custom-table tr.highlight-row td {
+            background: rgba(6, 182, 212, 0.08);
+            font-weight: 600;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tag-optimal {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .tag-feature {
+            background: rgba(255, 255, 255, 0.07);
+            color: #e2e8f0;
+            margin: 2px;
+        }
+
+        .mono-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        /* Insight Box */
+        .insight-box {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%);
+            border: 1px solid rgba(6, 182, 212, 0.25);
+            border-radius: var(--radius-md);
+            padding: 1.25rem 1.5rem;
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .insight-icon {
+            font-size: 1.5rem;
+            color: var(--cyan-accent);
+            flex-shrink: 0;
+            margin-top: 0.15rem;
+        }
+
+        .insight-content h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--cyan-accent);
+            margin-bottom: 0.3rem;
+        }
+
+        .insight-content p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Calculator Styles */
+        .calc-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 860px) {
+            .calc-grid {
+                grid-template-columns: 1.1fr 0.9fr;
+            }
+        }
+
+        .calc-input-group {
+            margin-bottom: 1.3rem;
+        }
+
+        .calc-input-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .calc-label {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .calc-display-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--cyan-accent);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 7px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 19px;
+            height: 19px;
+            border-radius: 50%;
+            background: var(--cyan-accent);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+            transition: var(--transition);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .calc-result-panel {
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(6, 182, 212, 0.15);
+        }
+
+        .calc-result-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+        }
+
+        .calc-result-number {
+            font-size: clamp(2.2rem, 5vw, 3.2rem);
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #38bdf8;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 25px rgba(56, 189, 248, 0.4);
+        }
+
+        .calc-equation-box {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.85rem;
+            border-radius: var(--radius-sm);
+            margin-top: 1rem;
+            line-height: 1.4;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2.5rem 0 1.5rem 0;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-dim);
+            font-size: 0.88rem;
+        }
+
+        footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        footer a:hover {
+            color: var(--cyan-accent);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="badge-pill">
+                <span class="dot"></span>
+                Machine Learning & Feature Selection
+            </div>
+            <h1>50 Startups 多元線性回歸特徵工程分析</h1>
+            <p class="subtitle">
+                探討 ANOVA F-test、RFE 遞迴特徵消除與 Lasso 正則化對新創企業利潤預測模型的影響，找出最具泛化能力之特徵組合。
+            </p>
+            <div class="top-links">
+                <a href="https://github.com/chenyichencyc/1019_50startup" target="_blank" class="btn-link">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    GitHub 原始碼庫
+                </a>
+                <a href="#section_optimal_eval" class="btn-link">📈 特徵數量評估</a>
+                <a href="#calcSection" class="btn-link">🧮 線上利潤預測</a>
+                <a href="#section_feature_methods" class="btn-link">🔬 三大特徵篩選方法</a>
+            </div>
+        </header>
+
+        <!-- KPI Metric Summary Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--accent-color: #10b981;">
+                <div class="kpi-title">最佳特徵數量 (Optimal) <span>★</span></div>
+                <div class="kpi-value">2 <span style="font-size:1rem;color:#10b981;font-weight:600;">Features</span></div>
+                <div class="kpi-sub">R&D Spend + Marketing Spend</div>
+            </div>
+            <div class="kpi-card" style="--accent-color: #06b6d4;">
+                <div class="kpi-title">最低測試誤差 (Min RMSE) <span>📉</span></div>
+                <div class="kpi-value">$8,198.80</div>
+                <div class="kpi-sub">相比 5 特徵大幅降低 10.3% 誤差</div>
+            </div>
+            <div class="kpi-card" style="--accent-color: #3b82f6;">
+                <div class="kpi-title">最高決定係數 (Max R²) <span>🎯</span></div>
+                <div class="kpi-value">0.9474</div>
+                <div class="kpi-sub">解釋高達 94.74% 的利潤變異</div>
+            </div>
+            <div class="kpi-card" style="--accent-color: #f43f5e;">
+                <div class="kpi-title">全特徵過擬合差值 (Delta) <span>⚠️</span></div>
+                <div class="kpi-value">+939.19</div>
+                <div class="kpi-sub">多餘特徵 (Admin/State) 帶來的噪聲</div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- STANDALONE SECTION 1: Number of Features Evaluation       -->
+        <!-- ======================================================== -->
+        <div id="section_optimal_eval">
+            <div class="glass-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">📈 特徵數量對回歸模型效能之影響 (Feature Count Evaluation)</div>
+                        <div class="card-subtitle">依特徵重要度由 1 至 5 個逐一加入模型，評估測試集 RMSE 與 R² 變化曲線</div>
+                    </div>
+                    <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
+                        <button id="btnShowInteractive" class="btn-link" style="cursor:pointer;background:rgba(6,182,212,0.2);border-color:var(--cyan-accent);" onclick="toggleChartMode('interactive')">📊 互動圖表</button>
+                        <button id="btnShowPng" class="btn-link" style="cursor:pointer;" onclick="toggleChartMode('png')">🖼️ Matplotlib 原圖</button>
+                        <span class="tag tag-optimal">Optimal: k = 2</span>
+                    </div>
+                </div>
+
+                <div id="chartInteractiveContainer" class="chart-grid dual">
+                    <div class="chart-box">
+                        <div class="chart-title">
+                            <span>均方根誤差 (RMSE by Number of Features)</span>
+                            <span style="color:#2563eb;font-size:0.8rem;">越低越好 ⬇</span>
+                        </div>
+                        <div class="canvas-container">
+                            <canvas id="chartRMSE"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-box">
+                        <div class="chart-title">
+                            <span>決定係數 (R-squared by Number of Features)</span>
+                            <span style="color:#2563eb;font-size:0.8rem;">越高越好 ⬆</span>
+                        </div>
+                        <div class="canvas-container">
+                            <canvas id="chartR2"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="chartPngContainer" style="display:none; text-align:center; padding:1.2rem; background:rgba(10,15,28,0.6); border-radius:var(--radius-md); border:1px solid rgba(255,255,255,0.06); margin-bottom:1.5rem;">
+                    <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:0.8rem;">Python Matplotlib 直接繪製生成之高解析度圖檔 (<code>features_performance.png</code>)</p>
+                    <img src="features_performance.png" alt="Python Matplotlib 原生折線圖" style="max-width:100%; height:auto; border-radius:var(--radius-sm); border:1px solid var(--border-color); box-shadow:0 8px 25px rgba(0,0,0,0.4);">
+                </div>
+
+                <div class="insight-box">
+                    <div class="insight-icon">💡</div>
+                    <div class="insight-content">
+                        <h4>機器學習核心觀察 (Bias-Variance Tradeoff)：</h4>
+                        <p>
+                            當特徵數量從 1 增加至 2 時，加入了具有實質輔助預測力的行銷費用（Marketing Spend），使 RMSE 降至最低點 <strong>8198.80</strong>，R² 達到頂峰 <strong>0.9474</strong>。但當特徵繼續增加至 3~5 個（加入紐約州、佛州與行政費用）時，模型開始擬合訓練集隨機雜訊（Overfitting），導致測試集 RMSE 激增至 <strong>9137.99</strong>。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="glass-card" id="tableSection">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">📋 實驗評估詳細數據對照表</div>
+                        <div class="card-subtitle">對應於各特徵組合在測試集 (Test Set) 上之嚴謹量化成果</div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">Number of Features</th>
+                                <th style="width: 55%;">Selected Features</th>
+                                <th style="width: 15%; text-align: right;">RMSE</th>
+                                <th style="width: 15%; text-align: right;">R-squared</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="tag">1</span></td>
+                                <td><span class="tag tag-feature">R&D Spend</span></td>
+                                <td style="text-align: right;" class="mono-val">8274.868018</td>
+                                <td style="text-align: right;" class="mono-val">0.946459</td>
+                            </tr>
+                            <tr class="highlight-row">
+                                <td><span class="tag tag-optimal">2 ★</span></td>
+                                <td>
+                                    <span class="tag tag-feature">R&D Spend</span>
+                                    <span class="tag tag-feature">Marketing Spend</span>
+                                    <span class="tag tag-optimal">最佳組合</span>
+                                </td>
+                                <td style="text-align: right;" class="mono-val" style="color:#10b981;">8198.797191</td>
+                                <td style="text-align: right;" class="mono-val" style="color:#10b981;">0.947439</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tag">3</span></td>
+                                <td>
+                                    <span class="tag tag-feature">R&D Spend</span>
+                                    <span class="tag tag-feature">Marketing Spend</span>
+                                    <span class="tag tag-feature">State_New York</span>
+                                </td>
+                                <td style="text-align: right;" class="mono-val">8309.059683</td>
+                                <td style="text-align: right;" class="mono-val">0.946015</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tag">4</span></td>
+                                <td>
+                                    <span class="tag tag-feature">R&D Spend</span>
+                                    <span class="tag tag-feature">Marketing Spend</span>
+                                    <span class="tag tag-feature">State_New York</span>
+                                    <span class="tag tag-feature">State_Florida</span>
+                                </td>
+                                <td style="text-align: right;" class="mono-val">8409.916714</td>
+                                <td style="text-align: right;" class="mono-val">0.944697</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tag">5</span></td>
+                                <td>
+                                    <span class="tag tag-feature">R&D Spend</span>
+                                    <span class="tag tag-feature">Marketing Spend</span>
+                                    <span class="tag tag-feature">State_New York</span>
+                                    <span class="tag tag-feature">State_Florida</span>
+                                    <span class="tag tag-feature">Administration</span>
+                                </td>
+                                <td style="text-align: right;" class="mono-val" style="color:#f43f5e;">9137.990153</td>
+                                <td style="text-align: right;" class="mono-val" style="color:#f43f5e;">0.934707</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- STANDALONE SECTION 2: Interactive Live Profit Predictor   -->
+        <!-- ======================================================== -->
+        <div class="glass-card" id="calcSection">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">🧮 線上利潤預測計算機 (Live Profit Predictor)</div>
+                    <div class="card-subtitle">基於最佳雙特徵模型（R² = 0.9474），即時預測新創公司投資組合所產生之年預估利潤</div>
+                </div>
+                <span class="tag tag-optimal">Model: 2 Features</span>
+            </div>
+
+            <div class="calc-grid">
+                <div>
+                    <div class="calc-input-group">
+                        <div class="calc-input-header">
+                            <span class="calc-label">研發費用支出 (R&D Spend)</span>
+                            <span class="calc-display-val" id="rdValDisplay">$100,000</span>
+                        </div>
+                        <input type="range" id="rdSlider" min="0" max="250000" step="1000" value="100000" oninput="updateCalculation()">
+                    </div>
+
+                    <div class="calc-input-group">
+                        <div class="calc-input-header">
+                            <span class="calc-label">行銷費用支出 (Marketing Spend)</span>
+                            <span class="calc-display-val" id="mktValDisplay">$200,000</span>
+                        </div>
+                        <input type="range" id="mktSlider" min="0" max="500000" step="2000" value="200000" oninput="updateCalculation()">
+                    </div>
+
+                    <div class="insight-box" style="margin-top: 1.5rem;">
+                        <div class="insight-icon">📈</div>
+                        <div class="insight-content">
+                            <h4>回歸係數解讀：</h4>
+                            <p>
+                                每增加 <strong>$1.00</strong> 研發支出，預估利潤將增加約 <strong>$0.79</strong>；每增加 <strong>$1.00</strong> 行銷支出，利潤將增加約 <strong>$0.033</strong>。基礎保障截距為 <strong>$46,346.34</strong>。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="calc-result-panel">
+                    <div class="calc-result-title">預估年獲利 (Estimated Profit)</div>
+                    <div class="calc-result-number" id="profitResult">$131,723</div>
+                    <div class="calc-equation-box">
+                        Profit = 46,346.34 + (0.7886 × R&D) + (0.0326 × Mkt)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- SECTION 3: FEATURE SELECTION METHODS (DROPDOWN SWITCHER) -->
+        <!-- ======================================================== -->
+        <div id="section_feature_methods">
+            <!-- Dropdown Control Panel (Only 3 Feature Selection Methods) -->
+            <div class="control-panel">
+                <div class="control-label-group">
+                    <div class="control-label">
+                        <span>🔬 選擇特徵篩選分析方法 (Feature Selection Method)</span>
+                    </div>
+                    <div class="control-desc">透過下拉式選單切換檢視 ANOVA F-test、RFE 遞迴特徵消除與 Lasso 正則化三種方法之詳細數據與模型權重</div>
+                </div>
+                <div class="select-wrapper">
+                    <select id="featureMethodSelect" class="custom-select" onchange="switchView(this.value)">
+                        <option value="anova_f" selected>🔬 1. ANOVA F-test (Filter Method 過濾法)</option>
+                        <option value="rfe_wrapper">🔄 2. RFE 遞迴特徵消除 (Wrapper Method 包裝法)</option>
+                        <option value="lasso_embedded">🎯 3. Lasso 回歸 L1 正則化 (Embedded Method 嵌入法)</option>
+                    </select>
+                    <div class="select-icon">▼</div>
+                </div>
+            </div>
+
+            <!-- VIEW 1: ANOVA F-test (Filter Method) - Active by default -->
+            <div id="view_anova_f" class="view-section active">
+            <div class="glass-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">🔬 方法一：ANOVA F-test 單變量顯著性檢驗 (Filter Method)</div>
+                        <div class="card-subtitle">過濾法不依賴特定機器學習模型，直接透過統計 F 分數衡量單一特徵與目標利潤的線性相依性</div>
+                    </div>
+                    <span class="badge-pill" style="color:#06b6d4;">Filter Method</span>
+                </div>
+
+                <div class="chart-grid dual">
+                    <div class="chart-box">
+                        <div class="chart-title">
+                            <span>各特徵 ANOVA F-Score 分數分佈 (越高越相關)</span>
+                        </div>
+                        <div class="canvas-container">
+                            <canvas id="chartANOVA"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="table-responsive">
+                            <table class="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>特徵名稱 (Feature)</th>
+                                        <th style="text-align: right;">F-Score</th>
+                                        <th style="text-align: right;">p-value</th>
+                                        <th>統計顯著性</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="highlight-row">
+                                        <td><strong>R&D Spend</strong></td>
+                                        <td style="text-align: right;" class="mono-val">652.39</td>
+                                        <td style="text-align: right;" class="mono-val">1.56e-25</td>
+                                        <td><span class="tag tag-optimal">極度顯著 (p < 0.001)</span></td>
+                                    </tr>
+                                    <tr class="highlight-row">
+                                        <td><strong>Marketing Spend</strong></td>
+                                        <td style="text-align: right;" class="mono-val">49.08</td>
+                                        <td style="text-align: right;" class="mono-val">2.42e-08</td>
+                                        <td><span class="tag tag-optimal">極度顯著 (p < 0.001)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Administration</td>
+                                        <td style="text-align: right;" class="mono-val">4.73</td>
+                                        <td style="text-align: right;" class="mono-val">0.0360</td>
+                                        <td><span class="tag" style="background:rgba(245,158,11,0.15);color:#fbbf24;">弱顯著 (p < 0.05)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>State_New York</td>
+                                        <td style="text-align: right;" class="mono-val">0.91</td>
+                                        <td style="text-align: right;" class="mono-val">0.3469</td>
+                                        <td><span class="tag" style="background:rgba(244,63,94,0.15);color:#f87171;">不顯著 (p > 0.05)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>State_Florida</td>
+                                        <td style="text-align: right;" class="mono-val">0.01</td>
+                                        <td style="text-align: right;" class="mono-val">0.9226</td>
+                                        <td><span class="tag" style="background:rgba(244,63,94,0.15);color:#f87171;">不顯著 (p > 0.05)</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="insight-box" style="margin-top: 1rem;">
+                            <div class="insight-icon">🔍</div>
+                            <div class="insight-content">
+                                <h4>ANOVA 篩選結論：</h4>
+                                <p>
+                                    研發費用（R&D）具有高達 652.39 的 F 分數，為利潤預測的第一決定要素；行銷支出次之（F=49.08）。州別虛擬變數之 p-value 均遠大於 0.05，證明新創公司設廠所在地對利潤無統計上之顯著影響。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- VIEW 3: RFE (Wrapper Method)                             -->
+        <!-- ======================================================== -->
+        <div id="view_rfe_wrapper" class="view-section">
+            <div class="glass-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">🔄 方法二：RFE 遞迴特徵消除 (Wrapper Method)</div>
+                        <div class="card-subtitle">使用線性回歸模型作為基底，在每一次迭代中剔除係數權重最小的特徵，由外而內逐步精煉</div>
+                    </div>
+                    <span class="badge-pill" style="color:#a855f7;">Wrapper Method</span>
+                </div>
+
+                <div class="chart-grid dual">
+                    <div class="chart-box">
+                        <div class="chart-title">
+                            <span>RFE 特徵淘汰階段與排名</span>
+                        </div>
+                        <div class="canvas-container">
+                            <canvas id="chartRFE"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="table-responsive">
+                            <table class="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>特徵 (Feature)</th>
+                                        <th>RFE 最終排名</th>
+                                        <th>淘汰輪次 (Step)</th>
+                                        <th>決策結果</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="highlight-row">
+                                        <td><strong>R&D Spend</strong></td>
+                                        <td><span class="tag tag-optimal">Rank 1</span></td>
+                                        <td>最終保留</td>
+                                        <td><span class="tag tag-optimal">核心特徵 (保留)</span></td>
+                                    </tr>
+                                    <tr class="highlight-row">
+                                        <td><strong>Marketing Spend</strong></td>
+                                        <td><span class="tag tag-optimal">Rank 2</span></td>
+                                        <td>第 4 輪淘汰</td>
+                                        <td><span class="tag tag-optimal">次要核心 (保留)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Administration</td>
+                                        <td><span class="tag">Rank 3</span></td>
+                                        <td>第 3 輪淘汰</td>
+                                        <td><span class="tag" style="background:rgba(244,63,94,0.15);color:#f87171;">噪聲特徵 (捨棄)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>State_Florida</td>
+                                        <td><span class="tag">Rank 4</span></td>
+                                        <td>第 2 輪淘汰</td>
+                                        <td><span class="tag" style="background:rgba(244,63,94,0.15);color:#f87171;">無關特徵 (捨棄)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>State_New York</td>
+                                        <td><span class="tag">Rank 5</span></td>
+                                        <td>第 1 輪淘汰</td>
+                                        <td><span class="tag" style="background:rgba(244,63,94,0.15);color:#f87171;">無關特徵 (捨棄)</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="insight-box" style="margin-top: 1rem;">
+                            <div class="insight-icon">⚙️</div>
+                            <div class="insight-content">
+                                <h4>包裝法優勢與標準化必要性：</h4>
+                                <p>
+                                    RFE 考慮了特徵與特徵之間的交互效應（Interaction Effects）。在執行 RFE 前必須進行<strong>標準化 (StandardScaler)</strong>，避免因金額數值尺度過大（如幾十萬）誤導權重係數之大小判斷。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- VIEW 4: Lasso (Embedded Method)                          -->
+        <!-- ======================================================== -->
+        <div id="view_lasso_embedded" class="view-section">
+            <div class="glass-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">🎯 方法三：Lasso 回歸 L1 正則化 (Embedded Method)</div>
+                        <div class="card-subtitle">嵌入法將特徵挑選內建於損失函數中，透過 L1 懲罰項將無貢獻之特徵係數直接壓縮至絕對零度 (0.0)</div>
+                    </div>
+                    <span class="badge-pill" style="color:#10b981;">Embedded Method</span>
+                </div>
+
+                <div class="chart-grid dual">
+                    <div class="chart-box">
+                        <div class="chart-title">
+                            <span>Lasso 特徵權重收縮結果 (最佳 α = 1,825.83)</span>
+                        </div>
+                        <div class="canvas-container">
+                            <canvas id="chartLasso"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="table-responsive">
+                            <table class="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>特徵 (Feature)</th>
+                                        <th style="text-align: right;">標準化係數 (Coef)</th>
+                                        <th style="text-align: right;">絕對權重</th>
+                                        <th>係數狀態</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="highlight-row">
+                                        <td><strong>R&D Spend</strong></td>
+                                        <td style="text-align: right;" class="mono-val">+35,370.11</td>
+                                        <td style="text-align: right;" class="mono-val">35,370.11</td>
+                                        <td><span class="tag tag-optimal">高度主導保留</span></td>
+                                    </tr>
+                                    <tr class="highlight-row">
+                                        <td><strong>Marketing Spend</strong></td>
+                                        <td style="text-align: right;" class="mono-val">+2,960.19</td>
+                                        <td style="text-align: right;" class="mono-val">2,960.19</td>
+                                        <td><span class="tag tag-optimal">正向輔助保留</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Administration</td>
+                                        <td style="text-align: right;" class="mono-val">0.0000</td>
+                                        <td style="text-align: right;" class="mono-val">0.00</td>
+                                        <td><span class="tag" style="background:rgba(100,116,139,0.2);color:#94a3b8;">強制壓縮為 0 (剔除)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>State_Florida</td>
+                                        <td style="text-align: right;" class="mono-val">-0.0000</td>
+                                        <td style="text-align: right;" class="mono-val">0.00</td>
+                                        <td><span class="tag" style="background:rgba(100,116,139,0.2);color:#94a3b8;">強制壓縮為 0 (剔除)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>State_New York</td>
+                                        <td style="text-align: right;" class="mono-val">0.0000</td>
+                                        <td style="text-align: right;" class="mono-val">0.00</td>
+                                        <td><span class="tag" style="background:rgba(100,116,139,0.2);color:#94a3b8;">強制壓縮為 0 (剔除)</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="insight-box" style="margin-top: 1rem;">
+                            <div class="insight-icon">⚖️</div>
+                            <div class="insight-content">
+                                <h4>L1 稀疏性 (Sparsity) 魔法：</h4>
+                                <p>
+                                    Lasso 在 5-fold 交叉驗證選定最佳懲罰係數 $\alpha = 1825.83$ 後，自然將 `Administration`、`State_Florida` 與 `State_New York` 三者係數嚴格收斂為 0，與前述 ANOVA、RFE 及特徵評估結論完全達成一致！
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>50 Startups Feature Selection & Multiple Linear Regression Analytics Dashboard</p>
+            <p style="margin-top: 0.35rem;">
+                GitHub Repository: <a href="https://github.com/chenyichencyc/1019_50startup" target="_blank">chenyichencyc/1019_50startup</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- Script Section -->
+    <script>
+        // Data sources
+        const featureCountData = {
+            labels: ['1 特徵', '2 特徵 (最佳)', '3 特徵', '4 特徵', '5 特徵'],
+            features: [
+                ['R&D Spend'],
+                ['R&D Spend', 'Marketing Spend'],
+                ['R&D Spend', 'Marketing Spend', 'State_New York'],
+                ['R&D Spend', 'Marketing Spend', 'State_New York', 'State_Florida'],
+                ['R&D Spend', 'Marketing Spend', 'State_New York', 'State_Florida', 'Administration']
+            ],
+            rmse: [8274.87, 8198.80, 8309.06, 8409.92, 9137.99],
+            r2: [0.9465, 0.9474, 0.9460, 0.9447, 0.9347]
+        };
+
+        // Charts instances
+        let chartRMSE = null;
+        let chartR2 = null;
+        let chartANOVA = null;
+        let chartRFE = null;
+        let chartLasso = null;
+
+        // Common Chart Defaults
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = "'Outfit', sans-serif";
+
+        function initCharts() {
+            // 1. RMSE Chart (100% Matplotlib features_performance.png alignment)
+            const ctxRMSE = document.getElementById('chartRMSE').getContext('2d');
+            chartRMSE = new Chart(ctxRMSE, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'RMSE 均方根誤差',
+                        data: [
+                            { x: 1, y: 8274.868018 },
+                            { x: 2, y: 8198.797191 },
+                            { x: 3, y: 8309.059683 },
+                            { x: 4, y: 8409.916714 },
+                            { x: 5, y: 9137.990153 }
+                        ],
+                        borderColor: '#2563eb',
+                        backgroundColor: '#2563eb',
+                        pointBackgroundColor: '#2563eb',
+                        pointBorderColor: '#2563eb',
+                        pointRadius: 5.5,
+                        pointHoverRadius: 8,
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0 // 純直線折線，與 Matplotlib 完全一致
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => `Number of Features: ${items[0].parsed.x}`,
+                                label: (ctx) => ` RMSE: ${ctx.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: 0.8,
+                            max: 5.2,
+                            title: { display: true, text: 'Number of Features', font: { size: 13, weight: 'bold' } },
+                            ticks: {
+                                stepSize: 0.5,
+                                callback: (val) => val.toFixed(1)
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' }
+                        },
+                        y: {
+                            min: 8150,
+                            max: 9185,
+                            title: { display: true, text: 'RMSE', font: { size: 13, weight: 'bold' } },
+                            ticks: {
+                                stepSize: 200,
+                                callback: (val) => val.toFixed(0)
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' }
+                        }
+                    }
+                }
+            });
+
+            // 2. R2 Chart (100% Matplotlib features_performance.png alignment)
+            const ctxR2 = document.getElementById('chartR2').getContext('2d');
+            chartR2 = new Chart(ctxR2, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'R-squared 決定係數',
+                        data: [
+                            { x: 1, y: 0.946459 },
+                            { x: 2, y: 0.947439 },
+                            { x: 3, y: 0.946015 },
+                            { x: 4, y: 0.944697 },
+                            { x: 5, y: 0.934707 }
+                        ],
+                        borderColor: '#2563eb',
+                        backgroundColor: '#2563eb',
+                        pointBackgroundColor: '#2563eb',
+                        pointBorderColor: '#2563eb',
+                        pointRadius: 5.5,
+                        pointHoverRadius: 8,
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0 // 純直線折線，與 Matplotlib 完全一致
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => `Number of Features: ${items[0].parsed.x}`,
+                                label: (ctx) => ` R-squared: ${ctx.parsed.y.toFixed(6)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: 0.8,
+                            max: 5.2,
+                            title: { display: true, text: 'Number of Features', font: { size: 13, weight: 'bold' } },
+                            ticks: {
+                                stepSize: 0.5,
+                                callback: (val) => val.toFixed(1)
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' }
+                        },
+                        y: {
+                            min: 0.934,
+                            max: 0.9481,
+                            title: { display: true, text: 'R-squared', font: { size: 13, weight: 'bold' } },
+                            ticks: {
+                                stepSize: 0.002,
+                                callback: (val) => val.toFixed(3)
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' }
+                        }
+                    }
+                }
+            });
+
+            // 3. ANOVA Chart
+            const ctxANOVA = document.getElementById('chartANOVA').getContext('2d');
+            chartANOVA = new Chart(ctxANOVA, {
+                type: 'bar',
+                data: {
+                    labels: ['R&D Spend', 'Marketing Spend', 'Administration', 'State_New York', 'State_Florida'],
+                    datasets: [{
+                        label: 'F-Score',
+                        data: [652.39, 49.08, 4.73, 0.91, 0.01],
+                        backgroundColor: [
+                            'rgba(6, 182, 212, 0.85)',
+                            'rgba(59, 130, 246, 0.85)',
+                            'rgba(245, 158, 11, 0.65)',
+                            'rgba(244, 63, 94, 0.45)',
+                            'rgba(244, 63, 94, 0.45)'
+                        ],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'ANOVA F-Score' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // 4. RFE Chart
+            const ctxRFE = document.getElementById('chartRFE').getContext('2d');
+            chartRFE = new Chart(ctxRFE, {
+                type: 'bar',
+                data: {
+                    labels: ['R&D Spend', 'Marketing Spend', 'Administration', 'State_Florida', 'State_New York'],
+                    datasets: [{
+                        label: '特徵重要度權重 (逆排名)',
+                        data: [5, 4, 3, 2, 1],
+                        backgroundColor: [
+                            'rgba(168, 85, 247, 0.9)',
+                            'rgba(168, 85, 247, 0.75)',
+                            'rgba(148, 163, 184, 0.4)',
+                            'rgba(148, 163, 184, 0.25)',
+                            'rgba(148, 163, 184, 0.15)'
+                        ],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` RFE 排名: Rank ${6 - ctx.raw}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: '優先保留權重 (5: Rank 1, 1: Rank 5)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // 5. Lasso Chart
+            const ctxLasso = document.getElementById('chartLasso').getContext('2d');
+            chartLasso = new Chart(ctxLasso, {
+                type: 'bar',
+                data: {
+                    labels: ['R&D Spend', 'Marketing Spend', 'Administration', 'State_Florida', 'State_New York'],
+                    datasets: [{
+                        label: 'Lasso 絕對權重係數',
+                        data: [35370.11, 2960.19, 0, 0, 0],
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.85)',
+                            'rgba(16, 185, 129, 0.65)',
+                            'rgba(244, 63, 94, 0.2)',
+                            'rgba(244, 63, 94, 0.2)',
+                            'rgba(244, 63, 94, 0.2)'
+                        ],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            title: { display: true, text: '標準化懲罰後係數值' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // Toggle between interactive Chart.js and native Matplotlib PNG
+        function toggleChartMode(mode) {
+            const interactiveEl = document.getElementById('chartInteractiveContainer');
+            const pngEl = document.getElementById('chartPngContainer');
+            const btnInteractive = document.getElementById('btnShowInteractive');
+            const btnPng = document.getElementById('btnShowPng');
+
+            if (mode === 'png') {
+                interactiveEl.style.display = 'none';
+                pngEl.style.display = 'block';
+                btnPng.style.background = 'rgba(6,182,212,0.2)';
+                btnPng.style.borderColor = 'var(--cyan-accent)';
+                btnInteractive.style.background = 'rgba(255,255,255,0.05)';
+                btnInteractive.style.borderColor = 'var(--border-color)';
+            } else {
+                interactiveEl.style.display = 'grid';
+                pngEl.style.display = 'none';
+                btnInteractive.style.background = 'rgba(6,182,212,0.2)';
+                btnInteractive.style.borderColor = 'var(--cyan-accent)';
+                btnPng.style.background = 'rgba(255,255,255,0.05)';
+                btnPng.style.borderColor = 'var(--border-color)';
+            }
+        }
+
+        // View Switcher logic (Only switches between the 3 feature selection methods)
+        function switchView(targetValue) {
+            const sections = document.querySelectorAll('#section_feature_methods .view-section');
+            sections.forEach(sec => sec.classList.remove('active'));
+
+            const targetSection = document.getElementById('view_' + targetValue);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+
+            // Sync select value if called programmatically
+            const sel = document.getElementById('featureMethodSelect');
+            if (sel && sel.value !== targetValue) {
+                sel.value = targetValue;
+            }
+        }
+
+        // Live Profit Calculator logic
+        function updateCalculation() {
+            const rd = parseFloat(document.getElementById('rdSlider').value);
+            const mkt = parseFloat(document.getElementById('mktSlider').value);
+
+            document.getElementById('rdValDisplay').innerText = '$' + rd.toLocaleString();
+            document.getElementById('mktValDisplay').innerText = '$' + mkt.toLocaleString();
+
+            // Optimal 2-feature regression formula:
+            // Profit = 46346.3388 + 0.788618 * R&D + 0.032577 * Marketing
+            const predictedProfit = 46346.3388 + (0.788618 * rd) + (0.032577 * mkt);
+
+            document.getElementById('profitResult').innerText = '$' + Math.round(predictedProfit).toLocaleString();
+        }
+
+        // Initialize on DOM load
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            updateCalculation();
+        });
+    </script>
+</body>
+</html>
